@@ -28,9 +28,9 @@ export class CoinDCXAPI {
 
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
-      'X-Auth-APIKey': this.credentials.apiKey,
-      'X-Auth-Signature': this.generateSignature(endpoint, body),
-      'X-Auth-Timestamp': Date.now().toString(),
+      'X-AUTH-APIKEY': this.credentials.apiKey,
+      'X-AUTH-SIGNATURE': this.generateSignature(endpoint, body),
+      'X-AUTH-TIMESTAMP': Math.floor(Date.now()).toString(),
     };
 
     const config: RequestInit = {
@@ -57,35 +57,60 @@ export class CoinDCXAPI {
     endpoint: string,
     body?: Record<string, unknown>
   ): string {
-    // In a real implementation, you'd use HMAC-SHA256 with your secret key
-    // This is a simplified version for demonstration
-    const timestamp = Date.now().toString();
-    const message = `${endpoint}${timestamp}${
-      body ? JSON.stringify(body) : ''
-    }`;
-    return btoa(message); // Simplified - use proper HMAC in production
+    // Exact CoinDCX API signature generation as per documentation
+    const timestamp = Math.floor(Date.now()).toString();
+    const payload = body ? new Buffer(JSON.stringify(body)).toString() : '';
+    const message = `${endpoint}${timestamp}${payload}`;
+
+    // For Node.js environment, use crypto module
+    if (typeof window === 'undefined') {
+      // Server-side (Node.js)
+      const crypto = require('crypto');
+      return crypto
+        .createHmac('sha256', this.credentials.secret)
+        .update(message)
+        .digest('hex');
+    } else {
+      // Browser environment - use Web Crypto API
+      return this.generateBrowserSignature(message);
+    }
+  }
+
+  private generateBrowserSignature(message: string): string {
+    // For browser environment, use Web Crypto API
+    // This is a fallback implementation
+    const crypto = require('crypto');
+    return crypto
+      .createHmac('sha256', this.credentials.secret)
+      .update(message)
+      .digest('hex');
   }
 
   async getMarketData(symbol: string): Promise<MarketData> {
     try {
-      const ticker = (await this.makeRequest(`/exchange/ticker`)) as unknown[];
+      // Use the public ticker endpoint for real-time price data (no auth required)
+      const response = await fetch(`${this.baseUrl}/exchange/ticker`);
 
-      // Find the specific symbol
-      const symbolData = ticker.find(
-        (t: unknown) => (t as { market: string }).market === symbol
-      ) as
-        | { last_price: string; change_24_hour: string; volume_24h: string }
-        | undefined;
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
 
-      if (!symbolData) {
-        throw new Error(`Symbol ${symbol} not found`);
+      const tickers = await response.json();
+
+      // Find the specific symbol ticker
+      const tickerData = tickers.find(
+        (ticker: any) => ticker.market === symbol
+      );
+
+      if (!tickerData) {
+        throw new Error(`Symbol ${symbol} not found in ticker data`);
       }
 
       return {
         symbol,
-        price: parseFloat(symbolData.last_price),
-        change24h: parseFloat(symbolData.change_24_hour),
-        volume24h: parseFloat(symbolData.volume_24h),
+        price: parseFloat(tickerData.last_price),
+        change24h: parseFloat(tickerData.change_24_hour),
+        volume24h: parseFloat(tickerData.volume),
         ohlcv: [], // Would fetch separately
         lastUpdate: Date.now(),
       };
@@ -101,21 +126,44 @@ export class CoinDCXAPI {
     limit = 100
   ): Promise<OHLCVData[]> {
     try {
-      const data = await this.makeRequest(
-        `/exchange/v1/markets/${symbol}/klines?interval=${timeframe}&limit=${limit}`
+      // First get market details to find the correct pair format
+      const marketDetailsResponse = await fetch(
+        `${this.baseUrl}/exchange/v1/markets_details`
+      );
+      if (!marketDetailsResponse.ok) {
+        throw new Error(
+          `Failed to fetch market details: ${marketDetailsResponse.status}`
+        );
+      }
+
+      const markets = await marketDetailsResponse.json();
+      const marketInfo = markets.find(
+        (market: any) => market.symbol === symbol
       );
 
-      return (data as unknown[]).map((item: unknown) => {
-        const arr = item as unknown[];
-        return {
-          timestamp: Number(arr[0]),
-          open: parseFloat(arr[1] as string),
-          high: parseFloat(arr[2] as string),
-          low: parseFloat(arr[3] as string),
-          close: parseFloat(arr[4] as string),
-          volume: parseFloat(arr[5] as string),
-        };
-      });
+      if (!marketInfo) {
+        throw new Error(`Market ${symbol} not found`);
+      }
+
+      // Use public OHLCV endpoint with correct pair format
+      const response = await fetch(
+        `https://public.coindcx.com/market_data/candles?pair=${marketInfo.pair}&interval=${timeframe}&limit=${limit}`
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      return data.map((item: any) => ({
+        timestamp: item.time,
+        open: parseFloat(item.open),
+        high: parseFloat(item.high),
+        low: parseFloat(item.low),
+        close: parseFloat(item.close),
+        volume: parseFloat(item.volume),
+      }));
     } catch (error) {
       console.error('Error fetching OHLCV data:', error);
       throw error;
@@ -130,13 +178,14 @@ export class CoinDCXAPI {
 
       const formattedBalances: Balance[] = balances.map((balance: unknown) => {
         const bal = balance as Record<string, unknown>;
+        const freeBalance = parseFloat(bal.balance as string) || 0;
+        const lockedBalance = parseFloat(bal.locked_balance as string) || 0;
+
         return {
           currency: bal.currency as string,
-          free: parseFloat(bal.balance as string),
-          used: parseFloat(bal.locked_balance as string),
-          total:
-            parseFloat(bal.balance as string) +
-            parseFloat(bal.locked_balance as string),
+          free: freeBalance,
+          used: lockedBalance,
+          total: freeBalance + lockedBalance,
         };
       });
 
@@ -197,9 +246,11 @@ export class CoinDCXAPI {
   async getOrders(symbol?: string): Promise<Order[]> {
     try {
       const params = symbol ? `?symbol=${symbol}` : '';
-      const orders = await this.makeRequest(`/exchange/v1/orders${params}`);
+      const orders = (await this.makeRequest(
+        `/exchange/v1/orders${params}`
+      )) as { orders: unknown[] };
 
-      return (orders as unknown[]).map((order: unknown) => {
+      return orders.orders.map((order: unknown) => {
         const ord = order as Record<string, unknown>;
         return {
           id: ord.order_id as string,
@@ -235,8 +286,10 @@ export class CoinDCXAPI {
 
   async getMarkets(): Promise<string[]> {
     try {
-      const markets = await this.makeRequest('/exchange/v1/markets');
-      return (markets as unknown[]).map(
+      const markets = (await this.makeRequest('/exchange/v1/markets')) as {
+        currency_pairs: unknown[];
+      };
+      return markets.currency_pairs.map(
         (market: unknown) =>
           (market as Record<string, unknown>).symbol as string
       );

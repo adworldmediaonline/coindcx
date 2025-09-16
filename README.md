@@ -5,7 +5,7 @@ A professional, AI-powered cryptocurrency trading bot built with Next.js 15, Rea
 ## 🚀 Features
 
 - **AI-Powered Trading Signals**: Machine learning algorithms for market analysis and prediction
-- **Real-Time Market Data**: Live price feeds and technical indicators
+- **Real-Time Market Data**: Live price feeds and technical indicators from CoinDCX API
 - **Automated Trading**: Execute trades based on AI signals and predefined strategies
 - **Risk Management**: Advanced position sizing, stop-loss, and take-profit controls
 - **Beautiful UI**: Modern, responsive interface built with shadcn/ui and Tailwind CSS
@@ -19,12 +19,12 @@ A professional, AI-powered cryptocurrency trading bot built with Next.js 15, Rea
 - **Styling**: Tailwind CSS v4, shadcn/ui components
 - **Backend**: Next.js API Routes
 - **AI/ML**: Custom algorithms for technical analysis
-- **Exchange Integration**: CoinDCX API
+- **Exchange Integration**: CoinDCX API with HMAC-SHA256 authentication
 - **State Management**: React hooks and context
 
 ## 📋 Prerequisites
 
-- Node.js 18+ and npm/pnpm
+- Node.js 18+ and pnpm
 - CoinDCX Pro account with API access
 - Basic understanding of cryptocurrency trading
 
@@ -38,34 +38,41 @@ cd coindcx
 pnpm install
 ```
 
-### 2. Environment Setup
-
-Copy the environment template and configure your settings:
-
-```bash
-cp .env.example .env.local
-```
-
-Edit `.env.local` with your CoinDCX API credentials:
-
-```env
-# Get these from https://coindcx.com/settings/api
-COINDCX_API_KEY=your_api_key_here
-COINDCX_SECRET=your_secret_key_here
-
-# Keep as true for development/testing
-USE_MOCK_DATA=true
-```
-
-### 3. CoinDCX API Setup
+### 2. CoinDCX API Setup
 
 1. Log in to your CoinDCX Pro account
 2. Go to Settings → API Management
 3. Create a new API key with the following permissions:
-   - ✅ Read Info
-   - ✅ Enable Trading
+   - ✅ Read Info (for balance and market data)
+   - ✅ Enable Trading (for placing orders)
    - ✅ Enable Withdrawals (optional)
 4. Copy your API Key and Secret to the `.env.local` file
+
+### 3. Environment Configuration
+
+Create a `.env.local` file in the root directory:
+
+```env
+# CoinDCX Real API Configuration
+COINDCX_API_KEY=your_actual_api_key_here
+COINDCX_SECRET=your_actual_secret_here
+
+# Use real API data (set to false for live trading)
+USE_MOCK_DATA=false
+
+# Bot Configuration
+BOT_DEFAULT_SYMBOL=BTC/USDT
+BOT_UPDATE_INTERVAL=5000
+
+# Risk Management (configure carefully)
+BOT_MAX_POSITION_SIZE=0.05  # 5% max position (conservative)
+BOT_MAX_RISK_PER_TRADE=0.01  # 1% risk per trade
+BOT_MAX_DRAWDOWN=0.03  # 3% max drawdown
+BOT_STOP_LOSS_PERCENT=0.02
+BOT_TAKE_PROFIT_PERCENT=0.04
+BOT_MAX_OPEN_POSITIONS=2
+BOT_DEFAULT_LEVERAGE=1
+```
 
 ### 4. Run the Application
 
@@ -75,22 +82,34 @@ pnpm dev
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-## 🔧 Configuration
+## 🔧 API Configuration
 
-### Environment Variables
+### Real vs Mock Data
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `COINDCX_API_KEY` | Your CoinDCX API key | - |
-| `COINDCX_SECRET` | Your CoinDCX API secret | - |
-| `USE_MOCK_DATA` | Use mock data for development | `false` |
-| `BOT_DEFAULT_SYMBOL` | Default trading pair | `BTC/USDT` |
-| `BOT_MAX_POSITION_SIZE` | Maximum position size (%) | `0.1` |
-| `BOT_MAX_RISK_PER_TRADE` | Maximum risk per trade (%) | `0.02` |
+The application supports both real CoinDCX API data and mock data for development:
 
-See `.env.example` for all available configuration options.
+- **Real API**: Set `USE_MOCK_DATA=false` and provide valid API credentials
+- **Mock Data**: Set `USE_MOCK_DATA=true` for development/testing
 
-## 📊 Trading Strategies
+### API Endpoints Used
+
+- `GET /exchange/v1/markets_details` - Market data and prices
+- `GET /exchange/v1/users/balances` - Account balance
+- `GET /exchange/v1/orders` - Order history
+- `POST /exchange/v1/orders/create` - Place new orders
+- `POST /exchange/v1/orders/cancel` - Cancel orders
+
+### Authentication
+
+The application uses HMAC-SHA256 signature authentication as required by CoinDCX:
+
+```typescript
+const signature = crypto.createHmac('sha256', secret)
+  .update(`${endpoint}${timestamp}${body}`)
+  .digest('hex');
+```
+
+## 🎯 Trading Strategies
 
 ### Included Strategies
 
@@ -124,23 +143,6 @@ const customStrategy: AIStrategy = {
   }
 }
 ```
-
-## 🎯 Risk Management
-
-### Position Sizing
-- Maximum position size: 10% of portfolio
-- Risk per trade: 2% of capital
-- Maximum drawdown: 5%
-
-### Stop Loss & Take Profit
-- Automatic stop-loss orders
-- Configurable take-profit levels
-- Trailing stop options
-
-### Safety Features
-- Maximum open positions limit
-- Daily loss limits
-- Emergency stop functionality
 
 ## 🔄 API Endpoints
 
@@ -209,11 +211,13 @@ pnpm type-check
 - Never commit API keys to version control
 - Use environment variables for sensitive data
 - Rotate API keys regularly
+- Enable IP restrictions on your CoinDCX API keys
 
 ### Trading Safety
 - Start with small position sizes
 - Use stop-loss orders on all positions
 - Test strategies in paper trading mode first
+- Set appropriate risk limits
 
 ## 🚨 Important Disclaimers
 
@@ -223,18 +227,21 @@ pnpm type-check
 - **Trading Risks**: Cryptocurrency trading involves substantial risk of loss
 - **Test First**: Always test strategies with paper trading before live deployment
 - **Your Responsibility**: You are solely responsible for your trading decisions
+- **Start Small**: Begin with minimal capital and gradually increase exposure
 
 ## 📞 Support
 
 ### Getting Help
-1. Check the documentation
-2. Review the code examples
-3. Open an issue on GitHub
+1. Check the API response logs in browser console
+2. Verify your CoinDCX API credentials and permissions
+3. Test API endpoints individually
+4. Check CoinDCX API documentation for latest changes
 
 ### Common Issues
 - **API Connection Failed**: Check your API credentials and network connection
-- **Mock Data Not Working**: Ensure `USE_MOCK_DATA=true` in development
-- **Strategy Not Trading**: Verify strategy is enabled and has sufficient balance
+- **Invalid Signature**: Ensure your secret key is correct and HMAC-SHA256 is properly implemented
+- **Insufficient Permissions**: Verify your API key has required permissions
+- **Rate Limits**: CoinDCX has API rate limits - implement proper request throttling
 
 ## 🤝 Contributing
 
@@ -260,6 +267,6 @@ pnpm build
 
 ---
 
-**Happy Trading! 🚀**
+**⚠️ Trading cryptocurrencies carries significant risk. Only trade with money you can afford to lose. Always do your own research and consider consulting with financial professionals before making trading decisions.**
 
-Remember: Invest only what you can afford to lose, and always do your own research.
+**Happy Trading! 🚀**

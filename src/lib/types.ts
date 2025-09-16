@@ -123,7 +123,13 @@ export interface AIStrategy {
 }
 
 // Bot Status Types
-export type BotStatus = 'idle' | 'running' | 'paused' | 'error' | 'stopped';
+export type BotStatus =
+  | 'idle'
+  | 'running'
+  | 'paused'
+  | 'error'
+  | 'stopped'
+  | 'demo_mode';
 
 export interface BotState {
   status: BotStatus;
@@ -194,7 +200,12 @@ export interface PaginatedResponse<T> extends APIResponse<T[]> {
 
 // WebSocket Event Types
 export interface WebSocketMessage {
-  type: 'market_data' | 'balance_update' | 'order_update' | 'signal_update' | 'bot_status';
+  type:
+    | 'market_data'
+    | 'balance_update'
+    | 'order_update'
+    | 'signal_update'
+    | 'bot_status';
   data: Record<string, unknown>;
   timestamp: number;
 }
@@ -230,7 +241,9 @@ export interface AppConfig {
 
 // Utility Types
 export type DeepPartial<T> = {
-  [P in keyof T]?: T[P] extends Record<string, unknown> ? DeepPartial<T[P]> : T[P];
+  [P in keyof T]?: T[P] extends Record<string, unknown>
+    ? DeepPartial<T[P]>
+    : T[P];
 };
 
 export type WithTimestamps<T> = T & {

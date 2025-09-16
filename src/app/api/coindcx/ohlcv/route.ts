@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createCoinDCXAPI, createMockCoinDCXAPI } from '@/lib/coindcx-api';
+import { createCoinDCXAPI } from '@/lib/coindcx-api';
 import { APIResponse } from '@/lib/types';
 
 export async function GET(request: NextRequest) {
@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const symbol = searchParams.get('symbol');
     const timeframe = searchParams.get('timeframe') || '1h';
-    const limit = parseInt(searchParams.get('limit') || '100');
+    const limit = parseInt(searchParams.get('limit') || '50');
 
     if (!symbol) {
       return NextResponse.json(
@@ -33,18 +33,18 @@ export async function GET(request: NextRequest) {
 
     const coindcxAPI = createCoinDCXAPI({ apiKey, secret });
 
-    // Get market data only (OHLCV will be handled by separate endpoint)
-    const marketData = await coindcxAPI.getMarketData(symbol);
+    // Get OHLCV data only
+    const ohlcvData = await coindcxAPI.getOHLCVData(symbol, timeframe, limit);
 
     const response: APIResponse = {
       success: true,
-      data: marketData,
+      data: ohlcvData,
       timestamp: Date.now(),
     };
 
     return NextResponse.json(response);
   } catch (error) {
-    console.error('Error fetching market data:', error);
+    console.error('Error fetching OHLCV data:', error);
 
     const errorResponse: APIResponse = {
       success: false,

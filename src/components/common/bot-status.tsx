@@ -1,10 +1,10 @@
-'use client'
+'use client';
 
-import { BotState } from '@/lib/types'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Progress } from '@/components/ui/progress'
+import { BotState } from '@/lib/types';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 import {
   Play,
   Pause,
@@ -12,16 +12,16 @@ import {
   AlertCircle,
   CheckCircle,
   Clock,
-  Activity
-} from 'lucide-react'
-import { cn } from '@/lib/utils'
+  Activity,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface BotStatusProps {
-  botState: BotState
-  onStart?: () => void
-  onPause?: () => void
-  onStop?: () => void
-  className?: string
+  botState: BotState;
+  onStart?: () => void;
+  onPause?: () => void;
+  onStop?: () => void;
+  className?: string;
 }
 
 const statusConfig = {
@@ -29,50 +29,58 @@ const statusConfig = {
     icon: Clock,
     label: 'Idle',
     variant: 'secondary' as const,
-    color: 'text-muted-foreground'
+    color: 'text-muted-foreground',
   },
   running: {
     icon: Activity,
     label: 'Running',
     variant: 'default' as const,
-    color: 'text-green-600'
+    color: 'text-green-600',
   },
   paused: {
     icon: Pause,
     label: 'Paused',
     variant: 'outline' as const,
-    color: 'text-yellow-600'
+    color: 'text-yellow-600',
   },
   error: {
     icon: AlertCircle,
     label: 'Error',
     variant: 'destructive' as const,
-    color: 'text-red-600'
+    color: 'text-red-600',
   },
   stopped: {
     icon: Square,
     label: 'Stopped',
     variant: 'secondary' as const,
-    color: 'text-muted-foreground'
-  }
-}
+    color: 'text-muted-foreground',
+  },
+  demo_mode: {
+    icon: Activity,
+    label: 'Demo Mode',
+    variant: 'outline' as const,
+    color: 'text-blue-600',
+  },
+};
 
 export const BotStatus = ({
   botState,
   onStart,
   onPause,
   onStop,
-  className
+  className,
 }: BotStatusProps) => {
-  const config = statusConfig[botState.status]
-  const StatusIcon = config.icon
+  const config = statusConfig[botState.status];
+  const StatusIcon = config.icon;
 
   const formatUptime = (seconds: number) => {
-    const hours = Math.floor(seconds / 3600)
-    const minutes = Math.floor((seconds % 3600) / 60)
-    const secs = seconds % 60
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
-  }
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    return `${hours.toString().padStart(2, '0')}:${minutes
+      .toString()
+      .padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
 
   const getConnectionStatus = () => {
     return botState.isConnected ? (
@@ -85,8 +93,8 @@ export const BotStatus = ({
         <AlertCircle className="w-3 h-3 mr-1" />
         Disconnected
       </Badge>
-    )
-  }
+    );
+  };
 
   return (
     <Card className={cn('w-full', className)}>
@@ -110,25 +118,40 @@ export const BotStatus = ({
         {/* Control Buttons */}
         <div className="flex gap-2">
           {onStart && botState.status === 'idle' && (
-            <Button onClick={onStart} size="sm" className="flex items-center gap-2">
+            <Button
+              onClick={onStart}
+              size="sm"
+              className="flex items-center gap-2"
+            >
               <Play className="w-4 h-4" />
               Start Bot
             </Button>
           )}
 
           {onPause && botState.status === 'running' && (
-            <Button onClick={onPause} variant="outline" size="sm" className="flex items-center gap-2">
+            <Button
+              onClick={onPause}
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2"
+            >
               <Pause className="w-4 h-4" />
               Pause
             </Button>
           )}
 
-          {onStop && (botState.status === 'running' || botState.status === 'paused') && (
-            <Button onClick={onStop} variant="destructive" size="sm" className="flex items-center gap-2">
-              <Square className="w-4 h-4" />
-              Stop
-            </Button>
-          )}
+          {onStop &&
+            (botState.status === 'running' || botState.status === 'paused') && (
+              <Button
+                onClick={onStop}
+                variant="destructive"
+                size="sm"
+                className="flex items-center gap-2"
+              >
+                <Square className="w-4 h-4" />
+                Stop
+              </Button>
+            )}
         </div>
 
         {/* Status Metrics */}
@@ -162,7 +185,11 @@ export const BotStatus = ({
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Current Signal</span>
                 <Badge
-                  variant={botState.currentSignal.direction === 'buy' ? 'default' : 'destructive'}
+                  variant={
+                    botState.currentSignal.direction === 'buy'
+                      ? 'default'
+                      : 'destructive'
+                  }
                   className="text-xs"
                 >
                   {botState.currentSignal.direction.toUpperCase()}
@@ -201,5 +228,5 @@ export const BotStatus = ({
         )}
       </CardContent>
     </Card>
-  )
-}
+  );
+};
